@@ -1,0 +1,8 @@
+Flore Magnard
+The code provided is the one with the best accuracy
+
+a/ One tree, all features. Take features one by one, split on the mean of the given feature (seems accurate after looking at the data distribution on weka) and compute the information gain (entropy variation) to ensure the efficiency of the split. Do it until there is no more gain or no more features available. Cross validation with 10 fold. Simplest way, give a good accuracy (0.795)
+
+b/ accuracy cross validation:0.795
+
+c/ I choose only a random subset of features and add more trees. The accuracy dwindles to 0.786.

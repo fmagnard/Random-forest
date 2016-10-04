@@ -1,0 +1,231 @@
+import csv
+import numpy as np  # http://www.numpy.org
+
+from CSE6242HW4Tester import generateSubmissionFile
+from math import log
+
+
+"""
+Here, X is assumed to be a matrix with n rows and d columns
+where n is the number of samples
+and d is the number of features of each sample
+
+Also, y is assumed to be a vector of n labels
+
+http://www.analyticbridge.com/profiles/blogs/random-forest-in-python
+http://www.sciencedirect.com/science/article/pii/S0167923609001377
+"""
+
+# Enter your name here
+myname = "Magnard-Flore"
+
+class RandomForest(object):
+	class __DecisionTree(object):
+		def __init__(self):
+			self.root = self.__DecisionNode()
+
+		class __DecisionNode(object):
+			splitFeature = None
+			splitValue = None
+			label = None
+			left_child = None
+			right_child = None
+
+			def recursive_split(self, X, y, meanValues, alreadyTested=[]):
+				gain = 0.0
+				score = 0.0
+				splitFeature = None
+				splitValue = None
+				left_child = None
+				right_child = None
+				[sizeRow, sizeCol] = X.shape
+
+				# Leaf node
+				if is_pure(y):
+					self.label = np.bincount(y).argmax()
+					return
+				#compute the entropy of the node before being split		
+				score = entropy(y)
+
+				#split on a feature not yet tested
+				for column in range(0,sizeCol):
+					if column in alreadyTested:
+						pass
+					else:
+						testValue = meanValues[column]	#split on the average value of the feature
+
+						[X_left,y_left,X_right,y_right] = split(X,y,column,testValue)
+
+						p = float(len(y_left)/len(y))
+						testGain = score - p*entropy(y_left) - (1-p)*entropy(y_right)	#calculating information gain
+						if testGain > gain:
+							gain =testGain
+							splitFeature = column
+							splitValue = testValue
+							best_X_left = X_left
+							best_y_left = y_left
+							best_X_right = X_right
+							best_y_right = y_right
+
+				if gain > 0:
+					self.splitFeature = splitFeature
+					self.splitValue = splitValue
+					self.left_child = self.__class__()
+					self.right_child = self.__class__()
+
+					# Grow branches
+					self.left_child.recursive_split(best_X_left, best_y_left, meanValues, alreadyTested = alreadyTested + [splitFeature])
+					self.right_child.recursive_split(best_X_right, best_y_right, meanValues, alreadyTested = alreadyTested + [splitFeature])
+
+				else:
+					# majority
+					self.label = np.bincount(y).argmax()
+
+				return
+
+		def learn(self, X, y):
+			node = self.root
+			meanValues = np.mean(X, axis=0)		#mean of a feature
+			node.recursive_split(X, y, meanValues)
+			pass
+
+
+		def classify(self, test_instance):
+			
+			node = self.root
+			while node.label == None:
+				if test_instance[node.splitFeature] >= node.splitValue:
+					node = node.left_child
+				else:
+					node = node.right_child
+			
+			return node.label
+
+	decision_trees = []
+
+
+	def __init__(self, num_trees):
+		# TODO: do initialization here, you can change the function signature according to your need
+		self.num_trees = num_trees
+		self.decision_trees = [self.__DecisionTree() for i in range(num_trees)]
+
+	# You MUST NOT change this signature
+	def fit(self, X, y):
+		# TODO: train `num_trees` decision trees
+		#decision_trees=decision_trees.learn(X,y)
+		n=0
+		#train num_trees decision trees
+		if n < self.num_trees:
+			for decision_tree in self.decision_trees:
+				#s Select a sample of features
+				index=np.random.permutation(10)[:5]
+				sample_X=X[:,index]
+
+				decision_tree.learn(X,y)
+			n=n+1
+
+		pass
+
+	# You MUST NOT change this signature
+	def predict(self, X):
+		y = np.array([], dtype = int)
+
+		for instance in X:
+			votes = np.array([decision_tree.classify(instance) for decision_tree in self.decision_trees])
+
+			counts = np.bincount(votes)
+
+			y = np.append(y, np.argmax(counts))
+
+		return y
+
+
+
+
+def main():
+	X = []
+	y = []
+
+	# Load data set
+	with open("hw4-data.csv") as f:
+		next(f, None)
+
+		for line in csv.reader(f, delimiter = ","):
+			X.append(line[:-1])
+			y.append(line[-1])
+
+	X = np.array(X, dtype = float)
+	y = np.array(y, dtype = int)
+
+	# Split training/test sets
+	
+	K = 10
+	total_accuracy = []
+	for k in range(0,K):
+		#10 fold validation
+		X_train = np.array([x for i, x in enumerate(X) if i % K != k], dtype = float)
+		y_train = np.array([z for i, z in enumerate(y) if i % K != k], dtype = int)
+		X_test  = np.array([x for i, x in enumerate(X) if i % K == k], dtype = float)
+		y_test  = np.array([z for i, z in enumerate(y) if i % K == k], dtype = int)
+
+		randomForest = RandomForest(1)  # Initialize according to your implementation
+
+		randomForest.fit(X_train, y_train)
+
+		y_predicted = randomForest.predict(X_test)
+
+		#print "y_predicted: " + str(y_predicted)
+		#print "y_true: " + str(y_test)
+
+		results = [prediction == truth for prediction, truth in zip(y_predicted, y_test)]
+		# Accuracy
+		accuracy = float(results.count(True)) / float(len(results))
+		print "accuracy: %.4f" % accuracy
+		total_accuracy.append(accuracy)
+
+	#compute the average accuracy generated by each cross vcalidation
+	accuracy=sum(total_accuracy)/len(total_accuracy)
+	print("accuracy cross validation:") + str(accuracy)
+	generateSubmissionFile(myname, randomForest)
+
+
+
+
+def split(X,y,splitFeature,splitValue):
+	#divide the function in 
+	split_function = None
+
+	# Split on binary 
+	if isinstance(splitValue, int) or isinstance(splitValue, float):
+		split_function = lambda row:row[splitFeature] >= splitValue
+	else:
+		split_function = lambda row:row[splitFeature] == splitValue
+
+	# Split the rows between left and right and add the associated y
+	X_left = np.asarray([row for row in X if split_function(row)])
+	X_right = np.asarray([row for row in X if not split_function(row)])
+
+	y_left = np.asarray([y[idx] for idx,row in enumerate(X) if split_function(row)])
+	y_right = np.asarray([y[idx] for idx,row in enumerate(X) if not split_function(row)])
+
+	return (X_left,y_left,X_right,y_right)
+
+def entropy(s):
+	#compute the entropy used for the information gain
+	res = 0
+	val, counts = np.unique(s, return_counts=True)
+	freqs = counts.astype('float')/len(s)
+	for p in freqs:
+		if p != 0.0:
+			res -= p * np.log2(p)
+	return res
+
+def is_pure(s):
+	return len(set(s)) == 1
+
+
+
+
+
+main()
+
